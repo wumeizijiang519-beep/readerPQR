@@ -1,0 +1,61 @@
+name: Windows desktop build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    env:
+      QT_QPA_PLATFORM: offscreen
+      PYTHONUTF8: '1'
+      READERPQR_DATA_DIR: ${{ github.workspace }}\smoke-data
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          architecture: x64
+          cache: pip
+      - name: Install pinned runtime and build tools
+        run: python -m pip install -r requirements-dev.txt
+      - name: Offline tests
+        run: python -m pytest -q --junitxml=test-results.xml
+      - name: Source GUI smoke test
+        run: python -m readerpqr --self-test --output smoke
+      - name: Package Windows executable
+        run: python scripts/build_windows.py
+      - name: Packaged executable smoke test
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath '.\dist\readerPQR\readerPQR.exe' -ArgumentList '--self-test','--output','smoke-packaged' -PassThru
+          if (-not $p.WaitForExit(60000)) { $p.Kill(); throw 'Packaged smoke test timed out' }
+          if ($p.ExitCode -ne 0) { throw "Packaged process failed: $($p.ExitCode)" }
+          if (-not (Test-Path 'smoke-packaged/smoke-ok.txt')) { throw 'Missing packaged smoke success marker' }
+      - name: Archive exact corresponding source
+        run: git archive --format=zip --output=dist/readerPQR/source-code.zip HEAD
+      - name: Upload portable Windows app
+        uses: actions/upload-artifact@v4
+        with:
+          name: readerPQR-Windows-x64
+          path: dist/readerPQR/
+          retention-days: 30
+      - name: Upload test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: readerPQR-test-evidence
+          path: |
+            test-results.xml
+            smoke/*.png
+            smoke/*.txt
+            smoke-packaged/*.png
+            smoke-packaged/*.txt
+          retention-days: 30
