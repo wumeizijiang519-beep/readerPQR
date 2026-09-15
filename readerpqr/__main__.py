@@ -9,6 +9,7 @@ from pathlib import Path
 def main():
     parser = argparse.ArgumentParser(description="readerPQR AI bilingual PDF reader")
     parser.add_argument("pdf", nargs="?", help="PDF path to open")
+    parser.add_argument("--reading-snapshot", help="Open a saved offline reading snapshot")
     parser.add_argument("--self-test", action="store_true", help="Offline packaged GUI smoke test; exits automatically")
     parser.add_argument("--output", default="smoke", help="Smoke-test report directory")
     args = parser.parse_args()
@@ -48,7 +49,24 @@ def main():
     window = ReaderWindow()
     install_notices(window)
     window.show()
-    if args.pdf:
+    if args.reading_snapshot:
+        try:
+            window.open_reading_snapshot(args.reading_snapshot)
+        except Exception:
+            from PySide6.QtWidgets import QMessageBox
+            import traceback
+            from .storage import data_dir
+            detail = traceback.format_exc()
+            try:
+                (data_dir() / "snapshot-error.txt").write_text(detail, encoding="utf-8")
+            except OSError:
+                pass
+            message = QMessageBox(window)
+            message.setWindowTitle("无法打开阅读快照")
+            message.setText("阅读快照未能加载。请展开详细信息查看具体原因。")
+            message.setDetailedText(detail)
+            message.exec()
+    elif args.pdf:
         QTimer.singleShot(0, lambda: window.open_path(str(Path(args.pdf).resolve())))
     return app.exec()
 

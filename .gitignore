@@ -12,6 +12,10 @@ smoke-packaged/
 .env
 .env.*
 settings.json
+modelflare.txt
+reading-snapshots/
+snapshot-error.txt
+*.lnk
 *.sqlite3*
 *.pdf
 !docs/sample.pdf

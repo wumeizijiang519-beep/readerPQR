@@ -188,6 +188,9 @@ class ReaderWindow(QMainWindow):
         self.export_button = QPushButton("导出双语")
         self.export_button.clicked.connect(self.export)
         top.addWidget(self.export_button)
+        self.shortcut_button = QPushButton("创建桌面阅读快捷方式")
+        self.shortcut_button.clicked.connect(self.create_reading_shortcut)
+        top.addWidget(self.shortcut_button)
         main.addLayout(top)
         self.notice = label("导入英文论文，生成逐段对齐的中文译文。原页、公式与图表随时可核对。", "notice", True)
         main.addWidget(self.notice)
@@ -262,6 +265,7 @@ class ReaderWindow(QMainWindow):
 
     def _enable(self, busy):
         present = self.paper is not None
+        self.shortcut_button.setEnabled(present and not busy)
         for widget in (self.import_button, self.settings_button):
             widget.setEnabled(not busy)
         for widget in (self.translate_button, self.page_translate, self.order):
@@ -543,6 +547,38 @@ class ReaderWindow(QMainWindow):
         self.pages.setCurrentRow(block.page)
         self.focus_block(block.id)
         self.statusBar().showMessage(f"匹配 {self._search_index + 1} / {len(matches)} · {block.id}")
+
+    def create_reading_shortcut(self):
+        if not self.paper or self.task is not None:
+            return
+        if self.password:
+            QMessageBox.warning(self, "无法创建", "此 PDF 需要密码。请先使用已解密的 PDF；快捷方式不会保存 PDF 密码。")
+            return
+        try:
+            from .reading_snapshot import save_snapshot, create_shortcut
+            path = save_snapshot(self.paper, self.translations, self.current_page)
+            link = create_shortcut(path, self.paper.title)
+            total = sum(b.kind == "text" for b in self.paper.blocks)
+            done = sum(b.kind == "text" and bool(self.translations.get(b.id)) for b in self.paper.blocks)
+            QMessageBox.information(self, "阅读快捷方式已创建",
+                f"已保存 PDF 副本、当前译文（{done}/{total} 段）和阅读页码。\n\n桌面快捷方式：\n{link}\n\n双击即可离线阅读，无需 API 密钥。后续译文更新后，请重新创建快捷方式。")
+        except Exception:
+            QMessageBox.warning(self, "创建失败", "无法保存阅读快照或创建桌面快捷方式，请检查磁盘空间和文件访问权限。")
+
+    def open_reading_snapshot(self, path):
+        from dataclasses import replace
+        from .reading_snapshot import load_snapshot
+        paper, translations, page = load_snapshot(path)
+        self.settings = replace(self.settings, auto_translate=False)
+        self.paper_loaded(paper)
+        self.translations.update(translations)
+        self.pages.setCurrentRow(page)
+        self.go_page(page)
+        self.order.setEnabled(False)
+        total = sum(b.kind == "text" for b in paper.blocks)
+        done = sum(b.kind == "text" and bool(translations.get(b.id)) for b in paper.blocks)
+        self.notice.setText(f"已打开阅读快照 · {paper.page_count} 页 · 已保存译文 {done}/{total} 段 · 离线阅读")
+        self.statusBar().showMessage("已恢复保存时的译文和阅读页码，无需调用 API。")
 
     def export(self):
         if not self.paper:
