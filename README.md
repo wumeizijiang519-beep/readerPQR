@@ -4,6 +4,26 @@
 
 > 当前版本：0.1.0。需要自备模型 API，或启动兼容 Chat Completions 的本机模型服务。没有内置付费密钥。扫描 PDF 暂不内置 OCR；本版本不是保持原版式的整本中文 PDF 重排器。
 
+## 看看实际阅读效果
+
+**左边核对英文，右边阅读中文；需要上下文时，一键回到原页。**
+
+以下为 readerPQR 打开 *ContextFlow: In-Context Flow Matching for Robot Manipulation* 后的真实界面截图。示例已完成 29 页、276 个文本段落的翻译，并保存为离线阅读快照。
+
+### 逐段对照，阅读不串行
+
+原文截图与对应中文放在同一行，共用滚动区域。原文字体、公式和引用保留在截图中，译文支持复制。
+
+![ContextFlow 摘要的英文原文与简体中文译文逐段对照](docs/images/contextflow-aligned.png)
+
+### 回到原页，随时核对上下文
+
+点击「原页定位」，即可查看 PDF 原页并高亮对应段落。读完后点击「创建桌面阅读快捷方式」，下次直接恢复 PDF、已保存译文和阅读页码，无需再次调用 API。
+
+![在 PDF 原页高亮 ContextFlow 摘要，并对照右侧中文译文](docs/images/contextflow-source.png)
+
+示例论文：[ContextFlow（arXiv:2609.06852）](https://arxiv.org/abs/2609.06852)。论文内容归原作者所有；截图中的中文为 AI 辅助译文，请以原文为准。图片展示本地阅读效果，不代表论文作者对本项目的背书。
+
 ## 使用方式
 
 ### 便携版：无需安装 Python
