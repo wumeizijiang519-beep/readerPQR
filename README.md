@@ -123,3 +123,15 @@ scripts/build_windows.py Windows 打包及第三方许可收集
 ## 许可与技术资料
 
 项目按 AGPL-3.0-only 发布；依赖的许可信息见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。打包版附带对应源代码。技术资料见 [架构与验收说明](docs/ARCHITECTURE.md)。
+
+## 自愿打赏
+
+如果 readerPQR 帮你更轻松地阅读论文，欢迎通过微信打赏支持作者维护项目。感谢每一份支持！
+
+打赏完全自愿，不是软件使用费，不影响按开源许可证使用本项目，也不包含模型 API 额度或额外服务承诺。
+
+<p align="center">
+  <img src="docs/images/wechat-tip.jpg" alt="微信自愿打赏收款码，图片标注金额为 0.50 元" width="280">
+</p>
+
+图片标注金额为 **¥0.50**，请在微信付款前核对实际金额与收款人。也欢迎通过 Star、反馈问题或贡献代码支持项目。
