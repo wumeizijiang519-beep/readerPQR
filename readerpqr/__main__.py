@@ -20,6 +20,7 @@ def main():
     from PySide6.QtCore import QTimer
     from PySide6.QtWidgets import QApplication
     from .ui import ReaderWindow
+    from .legal import install_notices
     app = QApplication.instance() or QApplication(sys.argv[:1])
     app.setApplicationName("readerPQR")
     app.setOrganizationName("readerPQR")
@@ -27,10 +28,14 @@ def main():
         from .smoke import run_smoke
         try:
             window = run_smoke(output)
+            install_notices(window)
             window.show()
             def capture():
                 app.processEvents()
-                window.grab().save(str(output / "readerPQR-windows.png"))
+                if not window.grab().save(str(output / "readerPQR-windows.png")):
+                    (output / "smoke-error.txt").write_text("Screenshot capture failed", encoding="utf-8")
+                    app.exit(1)
+                    return
                 (output / "smoke-ok.txt").write_text("PASS: offline PDF rendering, aligned GUI, exports and cache\n", encoding="utf-8")
                 window.close()
                 app.quit()
@@ -41,6 +46,7 @@ def main():
             (output / "smoke-error.txt").write_text(traceback.format_exc(), encoding="utf-8")
             return 1
     window = ReaderWindow()
+    install_notices(window)
     window.show()
     if args.pdf:
         QTimer.singleShot(0, lambda: window.open_path(str(Path(args.pdf).resolve())))
