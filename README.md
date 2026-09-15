@@ -1,5 +1,7 @@
 # readerPQR
 
+制作人：彭先生 pengqianrang2026@ia.ac.cn
+
 面向 **Windows 11 x64** 的 AI 文献阅读器。导入 PDF，在本地提取文字与段落坐标，再通过你配置的 AI 接口生成 **逐页、逐段对齐的简体中文译文**。
 
 > 当前版本：0.1.0。需要自备模型 API，或启动兼容 Chat Completions 的本机模型服务。没有内置付费密钥。扫描 PDF 暂不内置 OCR；本版本不是保持原版式的整本中文 PDF 重排器。

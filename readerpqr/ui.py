@@ -244,6 +244,7 @@ class ReaderWindow(QMainWindow):
         bottom.addStretch()
         bottom.addWidget(label("AI 翻译仅供辅助，请核对原文", "muted"))
         main.addLayout(bottom)
+        main.addWidget(label("制作人：彭先生 pengqianrang2026@ia.ac.cn", "muted", True))
         outer.addWidget(body, 1)
         welcome = label("把 PDF 拖到这里\n\n或点击左侧「导入 PDF」\n\n首次使用请在「AI 设置与术语表」中填写接口和密钥。", "title", True)
         welcome.setAlignment(Qt.AlignmentFlag.AlignCenter)
