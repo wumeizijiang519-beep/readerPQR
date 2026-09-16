@@ -124,6 +124,9 @@ class ReaderWindow(QMainWindow):
             self.settings = Settings()
             warning = "原设置文件无法读取，已使用默认设置；请重新填写 API。"
         self.paper = None
+        self.qa_history = []
+        self.qa_dialog = None
+        self.qa_windows = set()
         self.renderer = None
         self.password = ""
         self.translations = {}
@@ -172,6 +175,9 @@ class ReaderWindow(QMainWindow):
         self.settings_button = QPushButton("AI 设置与术语表")
         self.settings_button.clicked.connect(self.open_settings)
         side.addWidget(self.settings_button)
+        self.qa_button = QPushButton("论文问答")
+        self.qa_button.clicked.connect(self.open_qa)
+        side.addWidget(self.qa_button)
         self.support_button = QPushButton("支持作者 / 自愿打赏")
         self.support_button.clicked.connect(self.open_support)
         side.addWidget(self.support_button)
@@ -269,6 +275,7 @@ class ReaderWindow(QMainWindow):
 
     def _enable(self, busy):
         present = self.paper is not None
+        self.qa_button.setEnabled(present)
         self.shortcut_button.setEnabled(present and not busy)
         for widget in (self.import_button, self.settings_button):
             widget.setEnabled(not busy)
@@ -296,6 +303,7 @@ class ReaderWindow(QMainWindow):
         for widget in (self.pages, self.page_number, self.previous, self.next_button, self.find, self.export_button):
             widget.setEnabled(False)
         self.tabs.setEnabled(False)
+        self.qa_button.setEnabled(False)
         task.failed.disconnect(self._failure)
         task.failed.connect(lambda kind, message: self._import_failure(kind, message, path))
         self.progress.setRange(0, 0)
@@ -337,6 +345,11 @@ class ReaderWindow(QMainWindow):
             QTimer.singleShot(0, callback)
 
     def paper_loaded(self, paper):
+        if self.paper is None or self.paper.fingerprint != paper.fingerprint:
+            if self.qa_dialog is not None:
+                self.qa_dialog.reject()
+                self.qa_dialog = None
+            self.qa_history = []
         if self.renderer is not None:
             self.renderer.close()
         self.renderer = Renderer(paper.path, self.password)
@@ -524,6 +537,8 @@ class ReaderWindow(QMainWindow):
         dialog = SettingsDialog(self.settings, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self.settings = dialog.settings
+            if self.qa_dialog is not None:
+                self.qa_dialog.set_settings(self.settings)
             self._read_cache()
             if self.paper:
                 self.go_page(self.current_page)
@@ -551,6 +566,32 @@ class ReaderWindow(QMainWindow):
         self.pages.setCurrentRow(block.page)
         self.focus_block(block.id)
         self.statusBar().showMessage(f"匹配 {self._search_index + 1} / {len(matches)} · {block.id}")
+
+    def open_qa(self):
+        if self.paper is None or not self.tabs.isEnabled():
+            return
+        if self.qa_dialog is not None:
+            self.qa_dialog.showNormal()
+            self.qa_dialog.raise_()
+            self.qa_dialog.activateWindow()
+            return
+        if not self._ready():
+            QMessageBox.information(self, "先配置 AI", "请在 AI 设置中填写接口与密钥，并确认允许发送论文文字，再打开论文问答。")
+            return
+        from .qa_dialog import PaperQADialog
+        dialog = PaperQADialog(self.paper, self.settings, self.qa_history, self.current_page, self)
+        self.qa_dialog = dialog
+        self.qa_windows.add(dialog)
+        dialog.finished.connect(lambda _: self._qa_closed(dialog))
+        dialog.show()
+
+    def _qa_closed(self, dialog):
+        self.qa_windows.discard(dialog)
+        if self.qa_dialog is dialog:
+            self.qa_dialog = None
+        dialog.deleteLater()
+        if self.closing:
+            QTimer.singleShot(0, self.close)
 
     def open_support(self):
         from .support import SupportDialog
@@ -619,16 +660,22 @@ class ReaderWindow(QMainWindow):
                 break
 
     def closeEvent(self, event):
-        if self.task is not None:
+        qa_busy = any(dialog.task is not None for dialog in self.qa_windows)
+        if self.task is not None or qa_busy:
             if not self.closing:
-                answer = QMessageBox.question(self, "停止后退出？", "正在处理文献。停止任务并退出吗？已完成的译文会保留。")
+                answer = QMessageBox.question(self, "停止后退出？", "正在处理文献或生成问答。停止任务并退出吗？已完成的译文会保留。")
                 if answer != QMessageBox.StandardButton.Yes:
                     event.ignore()
                     return
                 self.closing = True
+            if self.task is not None:
                 self.task.stop.set()
+            for dialog in list(self.qa_windows):
+                dialog.reject()
             event.ignore()
             return
+        for dialog in list(self.qa_windows):
+            dialog.reject()
         if self.renderer is not None:
             self.renderer.close()
             self.renderer = None

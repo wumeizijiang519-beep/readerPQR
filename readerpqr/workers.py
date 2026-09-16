@@ -5,6 +5,8 @@ from PySide6.QtCore import QThread, Signal
 
 
 class Task(QThread):
+    status = Signal(str)
+    chunk = Signal(str)
     result = Signal(object)
     failed = Signal(str, str)
     translated = Signal(str, str, str)
