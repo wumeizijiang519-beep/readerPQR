@@ -17,6 +17,9 @@ readerpqr = "readerpqr.__main__:main"
 [tool.setuptools.packages.find]
 include = ["readerpqr*"]
 
+[tool.setuptools.package-data]
+readerpqr = ["assets/*.jpg"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"

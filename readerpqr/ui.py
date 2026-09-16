@@ -172,6 +172,9 @@ class ReaderWindow(QMainWindow):
         self.settings_button = QPushButton("AI 设置与术语表")
         self.settings_button.clicked.connect(self.open_settings)
         side.addWidget(self.settings_button)
+        self.support_button = QPushButton("支持作者 / 自愿打赏")
+        self.support_button.clicked.connect(self.open_support)
+        side.addWidget(self.support_button)
         outer.addWidget(sidebar)
         body = QWidget()
         main = QVBoxLayout(body)
@@ -548,6 +551,10 @@ class ReaderWindow(QMainWindow):
         self.pages.setCurrentRow(block.page)
         self.focus_block(block.id)
         self.statusBar().showMessage(f"匹配 {self._search_index + 1} / {len(matches)} · {block.id}")
+
+    def open_support(self):
+        from .support import SupportDialog
+        SupportDialog(self).exec()
 
     def create_reading_shortcut(self):
         if not self.paper or self.task is not None:

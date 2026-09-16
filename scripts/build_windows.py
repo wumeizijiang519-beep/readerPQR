@@ -10,6 +10,7 @@ if sys.platform != "win32":
     raise SystemExit("Windows packaging must run on Windows. Use the GitHub Actions workflow.")
 subprocess.run([sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--windowed",
                 "--onedir", "--name", "readerPQR", "--collect-data", "pymupdf",
+                "--add-data", "readerpqr/assets:readerpqr/assets",
                 "--exclude-module", "PySide6.QtWebEngineCore", "--exclude-module", "PySide6.QtWebEngineWidgets",
                 "main.py"], cwd=ROOT, check=True)
 output = ROOT / "dist" / "readerPQR"
