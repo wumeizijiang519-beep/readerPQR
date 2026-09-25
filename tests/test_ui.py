@@ -168,3 +168,76 @@ def test_stream_partial_is_visible_copyable_and_not_history(tmp_path, monkeypatc
     assert dialog.partial_answer == '' and dialog.transcript.toPlainText() == ''
     dialog.close()
     window.close()
+
+
+def test_summary_uses_full_paper_personal_context_and_separate_history(tmp_path, monkeypatch):
+    import asyncio
+    import time
+    from dataclasses import replace
+    monkeypatch.setenv('READERPQR_DATA_DIR', str(tmp_path / 'data'))
+    app = QApplication.instance() or QApplication([])
+    window = run_smoke(tmp_path)
+    monkeypatch.setattr(window, '_ready', lambda: True)
+    window.qa_history.append({'role':'assistant','content':'旧问答'})
+    window.open_summary()
+    dialog = window.summary_dialog
+    window.open_summary()
+    assert window.summary_dialog is dialog and len(window.qa_windows) == 1
+    assert dialog.scope.count() == 1 and QApplication.activeModalWidget() is None
+    async def answer(paper, settings, question, history, page, stop, **kwargs):
+        assert page is None and history == []
+        assert all(word in question for word in ['论文议题', '论文重点', '实验结果', '结论', '对本人的启示', '研一，具身智能'])
+        kwargs['on_chunk']('总结内容')
+        await asyncio.sleep(.03)
+        return '五部分总结 [第1页]'
+    monkeypatch.setattr('readerpqr.qa_dialog.ask_paper', answer)
+    dialog.question.setPlainText('研一，具身智能')
+    dialog.submit()
+    deadline = time.monotonic()+3
+    while dialog.task is not None and time.monotonic()<deadline:
+        app.processEvents()
+        time.sleep(.01)
+    assert dialog.task is None
+    assert dialog.transcript.toPlainText() == '五部分总结 [第1页]'
+    assert dialog.question.toPlainText() == '研一，具身智能'
+    assert window.qa_history == [{'role':'assistant','content':'旧问答'}]
+    assert len(window.summary_history) == 2
+    window.paper_loaded(replace(window.paper, fingerprint='another'))
+    app.processEvents()
+    assert window.summary_dialog is None and window.summary_history == []
+    window.close()
+
+
+def test_qa_attachment_selection_removal_and_submission(tmp_path, monkeypatch):
+    import time
+    from PySide6.QtWidgets import QFileDialog
+    from readerpqr.qa_dialog import PaperQADialog
+    monkeypatch.setenv('READERPQR_DATA_DIR',str(tmp_path/'data'))
+    app = QApplication.instance() or QApplication([])
+    window = run_smoke(tmp_path)
+    dialog = PaperQADialog(window.paper, window.settings, [], parent=window)
+    paths = [tmp_path/'a.txt',tmp_path/'b.md']
+    for path in paths:
+        path.write_text('evidence')
+    monkeypatch.setattr(QFileDialog,'getOpenFileNames',lambda *args:([str(p) for p in paths],'x'))
+    dialog.choose_attachments()
+    dialog.choose_attachments()
+    assert len(dialog.attachments) == 2
+    dialog.attachment_list.item(0).setSelected(True)
+    dialog.remove_attachments()
+    assert dialog.attachments == (str(paths[1].resolve()),)
+    async def answer(*args, **kwargs):
+        assert kwargs['attachments'] == (str(paths[1].resolve()),)
+        return '依据附件'
+    monkeypatch.setattr('readerpqr.qa_dialog.ask_paper',answer)
+    dialog.question.setPlainText('结合附件回答')
+    dialog.submit()
+    assert not dialog.add_attachment.isEnabled()
+    deadline = time.monotonic()+3
+    while dialog.task is not None and time.monotonic()<deadline:
+        app.processEvents()
+        time.sleep(.01)
+    assert dialog.task is None and dialog.add_attachment.isEnabled()
+    assert '依据附件' in dialog.transcript.toPlainText()
+    dialog.close()
+    window.close()

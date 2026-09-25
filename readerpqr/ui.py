@@ -124,6 +124,8 @@ class ReaderWindow(QMainWindow):
             self.settings = Settings()
             warning = "原设置文件无法读取，已使用默认设置；请重新填写 API。"
         self.paper = None
+        self.summary_history = []
+        self.summary_dialog = None
         self.qa_history = []
         self.qa_dialog = None
         self.qa_windows = set()
@@ -178,6 +180,9 @@ class ReaderWindow(QMainWindow):
         self.qa_button = QPushButton("论文问答")
         self.qa_button.clicked.connect(self.open_qa)
         side.addWidget(self.qa_button)
+        self.summary_button = QPushButton("论文总结")
+        self.summary_button.clicked.connect(self.open_summary)
+        side.addWidget(self.summary_button)
         self.support_button = QPushButton("支持作者 / 自愿打赏")
         self.support_button.clicked.connect(self.open_support)
         side.addWidget(self.support_button)
@@ -276,6 +281,7 @@ class ReaderWindow(QMainWindow):
     def _enable(self, busy):
         present = self.paper is not None
         self.qa_button.setEnabled(present)
+        self.summary_button.setEnabled(present)
         self.shortcut_button.setEnabled(present and not busy)
         for widget in (self.import_button, self.settings_button):
             widget.setEnabled(not busy)
@@ -304,6 +310,7 @@ class ReaderWindow(QMainWindow):
             widget.setEnabled(False)
         self.tabs.setEnabled(False)
         self.qa_button.setEnabled(False)
+        self.summary_button.setEnabled(False)
         task.failed.disconnect(self._failure)
         task.failed.connect(lambda kind, message: self._import_failure(kind, message, path))
         self.progress.setRange(0, 0)
@@ -349,6 +356,10 @@ class ReaderWindow(QMainWindow):
             if self.qa_dialog is not None:
                 self.qa_dialog.reject()
                 self.qa_dialog = None
+            if self.summary_dialog is not None:
+                self.summary_dialog.reject()
+                self.summary_dialog = None
+            self.summary_history = []
             self.qa_history = []
         if self.renderer is not None:
             self.renderer.close()
@@ -539,6 +550,8 @@ class ReaderWindow(QMainWindow):
             self.settings = dialog.settings
             if self.qa_dialog is not None:
                 self.qa_dialog.set_settings(self.settings)
+            if self.summary_dialog is not None:
+                self.summary_dialog.set_settings(self.settings)
             self._read_cache()
             if self.paper:
                 self.go_page(self.current_page)
@@ -567,26 +580,35 @@ class ReaderWindow(QMainWindow):
         self.focus_block(block.id)
         self.statusBar().showMessage(f"匹配 {self._search_index + 1} / {len(matches)} · {block.id}")
 
-    def open_qa(self):
+    def open_summary(self):
+        self.open_qa(summary=True)
+
+    def open_qa(self, checked=False, *, summary=False):
+        current = self.summary_dialog if summary else self.qa_dialog
         if self.paper is None or not self.tabs.isEnabled():
             return
-        if self.qa_dialog is not None:
-            self.qa_dialog.showNormal()
-            self.qa_dialog.raise_()
-            self.qa_dialog.activateWindow()
+        if current is not None:
+            current.showNormal()
+            current.raise_()
+            current.activateWindow()
             return
         if not self._ready():
-            QMessageBox.information(self, "先配置 AI", "请在 AI 设置中填写接口与密钥，并确认允许发送论文文字，再打开论文问答。")
+            QMessageBox.information(self, "先配置 AI", "请在 AI 设置中填写接口与密钥，并确认允许发送论文文字。")
             return
         from .qa_dialog import PaperQADialog
-        dialog = PaperQADialog(self.paper, self.settings, self.qa_history, self.current_page, self)
-        self.qa_dialog = dialog
+        dialog = PaperQADialog(self.paper, self.settings, self.summary_history if summary else self.qa_history, self.current_page, self, summary=summary)
+        if summary:
+            self.summary_dialog = dialog
+        else:
+            self.qa_dialog = dialog
         self.qa_windows.add(dialog)
         dialog.finished.connect(lambda _: self._qa_closed(dialog))
         dialog.show()
 
     def _qa_closed(self, dialog):
         self.qa_windows.discard(dialog)
+        if self.summary_dialog is dialog:
+            self.summary_dialog = None
         if self.qa_dialog is dialog:
             self.qa_dialog = None
         dialog.deleteLater()
